@@ -1,0 +1,129 @@
+Sub DDBtest()
+
+'-------------------------------------------------------------------------------------------------
+'REMEMBER TO OPEN VISSIM FROM THE COMMAND PROMPT!!!
+'Point the command prompt to: C:\Program Files\PTV Vision\PTV Vissim 9\Exe\VISSIM90.exe -automation
+'-------------------------------------------------------------------------------------------------
+
+Dim Vissim As Object
+Dim LoopVar1 As Integer
+Dim LoopVar2 As Integer
+Dim LoopVar3 As Integer
+Dim LinkNumber As Integer
+Dim DrivBehavNumber As Integer
+Dim NumberofSimulations As Integer
+
+Application.DisplayAlerts = False
+Set Vissim = CreateObject("Vissim.Vissim.9")
+
+NumberofSimulations = 60
+
+For LoopVar1 = 1 To NumberofSimulations
+        
+    'Vissim.LoadNet ("P:\61\79\30\Analysis\Vissim\1. Network Models\1. Existing 2016 Conditions (Calibration)\AM Master Dec 14 2017 - with peds and tram counters NHY.inpx")
+    
+        Dim SimNum As String
+        SimNum = LoopVar1
+        Dim SimNum3 As String
+        SimNum3 = LoopVar1 * 3
+        Dim PrevSimNum As String
+        PrevSimNum = LoopVar1 - 1
+        
+'-------------------------------------------------------------------------------------------------
+'Link "Cost Per Km" Adjustment Feature
+
+            For LoopVar2 = 1 To 289
+                
+                LinkNumber = Worksheets("Results" + SimNum).Cells(LoopVar2 + 18, 8).Value
+                Vissim.Net.Links.ItemByKey(LinkNumber).AttValue("CostPerKm") = Worksheets("Results" + PrevSimNum).Cells(LoopVar2 + 18, 14).Value
+        
+            Next LoopVar2
+'-------------------------------------------------------------------------------------------------
+
+'-------------------------------------------------------------------------------------------------
+'Driving Behaviour Parameters Adjustment Feature
+
+            For LoopVar3 = 1 To 18
+                
+                DrivBehavNumber = Worksheets("Results" + SimNum).Cells(LoopVar3 + 9, 64).Value
+                Vissim.Net.DrivingBehaviors.ItemByKey(DrivBehavNumber).AttValue("W74bxAdd") = Worksheets("Results" + PrevSimNum).Cells(LoopVar3 + 9, 68).Value
+                Vissim.Net.DrivingBehaviors.ItemByKey(DrivBehavNumber).AttValue("W74bxMult") = Worksheets("Results" + PrevSimNum).Cells(LoopVar3 + 9, 69).Value
+                
+            Next LoopVar3
+'-------------------------------------------------------------------------------------------------
+        
+    Vissim.Graphics.CurrentNetworkWindow.AttValue("QuickMode") = 1
+    
+Dim SimBreakAt As String
+Dim ActiveVehiclesLimit As Integer
+Dim NumberOfVehsInNetwork As Integer
+Dim LoopVar4 As Integer
+Dim ScaleTotVol As String
+
+ScaleTotVol = 70
+Vissim.Net.DynamicAssignment.AttValue("ScaleTotVolPerc") = ScaleTotVol
+
+For LoopVar4 = 1 To 4
+SimBreakAt = 100
+Vissim.Simulation.AttValue("SimBreakAt") = SimBreakAt
+
+
+ActiveVehiclesLimit = 2000
+
+        For LoopVar3 = 1 To 54
+            
+            Vissim.Simulation.RunContinuous
+            
+            If LoopVar4 = 1 Then
+            NumberOfVehsInNetwork = Vissim.Net.VehicleNetworkPerformanceMeasurement.AttValue("VehAct(1,1,10)")
+            ElseIf LoopVar4 = 2 Then
+            NumberOfVehsInNetwork = Vissim.Net.VehicleNetworkPerformanceMeasurement.AttValue("VehAct(2,1,10)")
+            ElseIf LoopVar4 = 3 Then
+            NumberOfVehsInNetwork = Vissim.Net.VehicleNetworkPerformanceMeasurement.AttValue("VehAct(3,1,10)")
+            Else
+            NumberOfVehsInNetwork = Vissim.Net.VehicleNetworkPerformanceMeasurement.AttValue("VehAct(4,1,10)")
+            End If
+            
+            If NumberOfVehsInNetwork > ActiveVehiclesLimit Then
+            
+                Vissim.Simulation.Stop
+                Exit For
+            
+            End If
+            If LoopVar3 = 2 And LoopVar4 = 4 Then
+                Vissim.Simulation.Stop
+                Exit For
+            End If
+                
+            If LoopVar3 = 54 Then Exit For
+                    
+            If LoopVar3 = 53 Then
+                SimBreakAt = 5400
+                Vissim.Simulation.AttValue("SimBreakAt") = SimBreakAt
+            Else
+                SimBreakAt = (LoopVar3 + 1) * 100
+                Vissim.Simulation.AttValue("SimBreakAt") = SimBreakAt
+            
+            End If
+            
+        Next
+        LoopVar3 = 1
+        If NumberOfVehsInNetwork > ActiveVehiclesLimit Then
+            Exit For
+        End If
+Next
+
+    Dim file_path2 As String
+    Dim file_path3 As String
+ 
+        file_path2 = "P:\61\79\30\Analysis\Vissim\1. Network Models\1. Existing 2016 Conditions (Calibration)\AM Master Dec 23 2017 - DDB (1)_Node Results_003"
+        Module3.ImportDelimitedText file_path2, ".att", "SimRun" + SimNum
+        
+        file_path3 = "P:\61\79\30\Analysis\Vissim\1. Network Models\1. Existing 2016 Conditions (Calibration)\AM Master Dec 23 2017 - DDB (1)_Vehicle Travel Time Results_003"
+        Module3.ImportDelimitedText file_path3, ".att", "TT" + SimNum
+    
+Next LoopVar1
+    
+    Vissim.SaveNetAs ("P:\61\79\30\Analysis\Vissim\1. Network Models\1. Existing 2016 Conditions (Calibration)\AM Master Dec 23 2017 - DDB (2).inpx")
+
+End Sub
